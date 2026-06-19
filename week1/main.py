@@ -48,7 +48,7 @@ def main():
             run_silver()
         case "load":
             run_gold()
-        case "profiler":
+        case "profile":
             run_profiler()
         case "all":
             run_bronze()
@@ -58,7 +58,7 @@ def main():
         case _:
             print(f"Error: '{command}' is not a valid command", file=sys.stderr)
             print(
-                "Usage: uv run python main.py <ingest|process|load|all>",
+                "Usage: uv run python main.py <ingest|process|load|profile|all>",
                 file=sys.stderr,
             )
             sys.exit(1)
