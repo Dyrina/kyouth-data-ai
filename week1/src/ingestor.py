@@ -25,12 +25,14 @@ def extract_html_payload(mhtml_file):
 
     for part in msg.walk():
         if part.get_content_type() == "text/html":
-            return part.get_content()
+            payload = part.get_payload(decode=True)
+            charset = part.get_content_charset() or "utf-8"
+            return payload.decode(charset, errors="replace")
 
     return None
 
 
-def process_mhtml_file(mhtml_file, output_dir):
+def process_mhtml_file(mhtml_file, output_dir) -> bool:
     try:
         clean_html = extract_html_payload(mhtml_file)
 
@@ -43,7 +45,7 @@ def process_mhtml_file(mhtml_file, output_dir):
         print(f"⚠️ No HTML content found in: {mhtml_file.name}")
         return False
     except Exception as err:
-        print(f"⚠️ Failed to process {mhtml_file.name}: {err}")
+        print(f"⚠️ Failed to extract {mhtml_file.name}: {err}")
         return False
 
 
