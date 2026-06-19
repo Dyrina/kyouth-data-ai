@@ -1,10 +1,9 @@
-from pathlib import Path
 from email import policy
 import sys
 import email
 
 
-def is_valid_directory(directory_path: Path) -> bool:
+def is_valid_directory(directory_path) -> bool:
     if not directory_path.exists():
         print(
             f"\nError: The source directory '{directory_path}' does not exist.",
