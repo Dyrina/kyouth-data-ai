@@ -58,7 +58,7 @@ def main():
         case _:
             print(f"Error: '{command}' is not a valid command", file=sys.stderr)
             print(
-                "Usage: uv run python main.py <ingest|process|load|profile|all>",
+                "Usage: uv run python main.py [ingest|process|load|profile|all]",
                 file=sys.stderr,
             )
             sys.exit(1)
