@@ -4,10 +4,10 @@ import sqlite3
 
 def is_valid_database(db_path) -> bool:
     if not db_path.exists():
-        print(f"Error: Database not found at {db_path}", file=sys.stderr)
+        print(f"❌ Database not found at {db_path}", file=sys.stderr)
         return False
     if not db_path.is_file():
-        print(f"Error: Path '{db_path}' exists but is not a file.", file=sys.stderr)
+        print(f"❌ Path '{db_path}' exists but is not a file.", file=sys.stderr)
         return False
     return True
 
