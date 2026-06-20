@@ -36,7 +36,7 @@ def insert_json(json_file, cursor) -> bool:
                 None,
             ),
         )
-        was_inserted = cursor.rowcount > 0
+        was_inserted = cursor.rowcount == 1
         if was_inserted:
             print(f"✅ Inserted: {json_file.name}")
             return True
