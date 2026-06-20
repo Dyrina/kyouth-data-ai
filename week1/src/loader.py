@@ -37,7 +37,6 @@ def insert_json(json_file, cursor) -> bool:
             ),
         )
         was_inserted = cursor.rowcount > 0
-        cursor.connection.commit()
         if was_inserted:
             print(f"✅ Inserted: {json_file.name}")
             return True
@@ -81,7 +80,7 @@ def load_all_jsons(input_dir, output_dir):
                 inserted += 1
             else:
                 skipped += 1
-
+        cursor.connection.commit()
     except sqlite3.Error as db_error:
         print(f"⚠️ Database Init error: {db_error}")
     finally:
