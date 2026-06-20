@@ -41,11 +41,11 @@ Why do cloud systems prefer loading raw data first before cleaning it (ELT)? Wha
 	Additionally, processing files sequentially (one by one) is too slow for massive datasets. Distributed processing tools like Apache Spark solve this by splitting the workload across hundreds of servers simultaneously, turning days of sequential processing into just a few minutes.
 
 ### Day 3: The Blueprint & The Vault (Storage & Contracts)
-What should happen if an important field like job_title disappears? Why fail early instead of silently inserting nulls into DB? How does INSERT OR IGNORE help prevent duplicate records?
+What should happen if an important field like `job_title` disappears? Why fail early instead of silently inserting `nulls` into DB? How does `INSERT OR IGNORE` help prevent duplicate records?
 - **Answer**: If a critical field like `job_title` goes missing, the pipeline must reject the record immediately. Failing early using strict Data Contracts (like Pydantic) prevents silent `NULL` values from sneaking into your Data Warehouse and breaking downstream business dashboards. It is always safer to drop a bad record at the gate than to permanently pollute your company's "single source of truth."
 
 	Additionally, using `INSERT OR IGNORE` guarantees your pipeline is idempotent. By checking a strict Primary Key (like `source_id`), the database automatically skips records it has already saved instead of crashing or creating duplicates. This ensures that no matter how many times your pipeline runs or fails, your database remains perfectly accurate.
 
 ### Day 4: The QA Inspector & Orchestrator (Orchestration & DAGs)
-What happens if processor.py crashes halfway? How are automated orchestration tools more reliable than manual retries with Python scripts?
+What happens if `processor.py` crashes halfway? How are automated orchestration tools more reliable than manual retries with Python scripts?
 - **Answer**: Manually running scripts is risky: if a process crashes halfway, engineers must dig through logs to safely restart it without duplicating data. Automated orchestrators like Airflow solve this by tracking every single step. If a failure occurs, they pause, alert you, and can automatically resume exactly where they left off once the issue is fixed.
