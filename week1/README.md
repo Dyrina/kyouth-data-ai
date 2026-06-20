@@ -16,10 +16,14 @@ This pipeline processes data through three progressive stages of quality:
 ## Setup
 - Ensure you have `uv` installed on your system. If not, install it from [here](https://docs.astral.sh/uv/#installation)
 1. `git clone` this repository
-2. Run `uv sync` for the first to download the dependencies
+2. Run `uv sync` for the first time to setup the project dependencies
 3. Create a `data/` directory and add the `0_source` directory in it. (If you don't have it, download it from [Day 1](https://fxdigitalskills.notion.site/Day-1-Extractor-Bronze-Layer-35117c3c3ec080d5bee7d5f87355cbcd) in notion)
-4. Then you can run the program using `uv`.
-	- `uv run python main.py [ingest|process|load|profile|all]`
+4. Then you can run the program using `uv` with the available commands.
+	- `uv run python main.py ingest` (Runs the Bronze Layer)
+	- `uv run python main.py process` (Runs the Silver Layer)
+	- `uv run python main.py load` (Runs the Gold Layer)
+	- `uv run python main.py profile` (Runs the Profiler which checks the data quality)
+	- `uv run python main.py all` (Runs all 4 of the above in sequence)
 
 ## Technical Reflections
 
