@@ -1,0 +1,11 @@
+[project]
+name = "week2"
+version = "0.1.0"
+description = "AI Components"
+readme = "README.md"
+requires-python = "==3.14.*"
+dependencies = [
+    "pydantic>=2.13.4",
+    "python-dotenv>=1.2.2",
+    "ruff==0.15.*",
+]
