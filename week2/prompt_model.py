@@ -18,7 +18,7 @@ def call_gemini(model: str, prompt: str) -> str:
         )
         return response.text
     except errors.APIError as e:
-        return f"[Gemini Error] API Error: {str(e)}"
+        return f"[Gemini Error] API Error: {str(e.code)} {str(e.message)}"
     except Exception as e:
         return f"[Gemini Error] Unexpected error: {str(e)}"
 
