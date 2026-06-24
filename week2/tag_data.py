@@ -154,7 +154,7 @@ def tag_data(db_url: str):
 
 if __name__ == "__main__":
     if len(sys.argv) > 3:
-        print("usage: uv run python tag_data.py <database_path> <model>")
+        print("usage: uv run python tag_data.py [database_path] [model]")
         sys.exit(1)
     if len(sys.argv) >= 2:
         DEFAULT_DB_PATH = sys.argv[1]
