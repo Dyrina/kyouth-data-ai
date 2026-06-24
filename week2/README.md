@@ -109,5 +109,5 @@ uv run python find_skill_gaps.py [resume_path] [model_name] [database_path]
 * **Batch Database Commits**: Rather than writing to the SQLite database per row, `tag_data.py` batches writes. This increases I/O efficiency but might lose intermediate state if a crash occurs mid-batch.
 
 ### Improvements
-* **Synonym Mapping Dictionary**: Implement a taxonomy or synonym dictionary to map similar technologies to their canonical representations (e.g. `MS SQL Server` -> `sql server`).
-* **Semantic Embeddings**: Utilize vector search embeddings to calculate semantic distance between candidate skills and required stacks rather than simple set operations.
+* **Better LLM**: Use a better LLM for tagging data.
+* **Better Prompt**: Use a better prompt for tagging data.
