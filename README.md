@@ -5,3 +5,6 @@
 
 ## Week 2: AI Component
 [Read here](week2/README.md)
+
+## Week 3: System Integration & Application
+[Read here](week3/README.md)
