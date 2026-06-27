@@ -38,19 +38,23 @@ def process_job_batch(model_name: str, batch_rows: list) -> dict[str, str]:
         jobs_text += f"--- JOB ID: {source_id} ---\n{description}\n\n"
         
     prompt = (
-        "You are an expert data labeling assistant. Analyze the following job descriptions "
-        "and extract the technical stack used in each job.\n"
-        "Include programming languages, frameworks, libraries, databases, tools, APIs, cloud platforms, "
-        "and methodologies (e.g., A/B testing, CI/CD, code reviews, testing, databases, APIs) "
-        "that are explicitly required.\n\n"
-        "You MUST output the result ONLY as a JSON object where the keys are the JOB IDs and the values "
-        "are a comma-separated list of the technical stack.\n"
+        "You are an expert data labeling assistant. Analyze the following batch of job descriptions "
+        "and extract the technical stack explicitly required for each job.\n\n"
+        "### EXTRACTION RULES:\n"
+        "1. Include: programming languages, frameworks, libraries, databases, tools, cloud platforms, APIs, "
+        "and technical methodologies (e.g., CI/CD, Agile, A/B testing, TDD).\n"
+        "2. Strict Grounding: Only extract skills explicitly written in the text. Do NOT infer skills.\n"
+        '3. The Empty Rule: If a job description contains zero technical skills, its value MUST be an empty string "".\n'
+        "4. Key Preservation: Your output JSON must contain an exact key for EVERY Job ID provided in the input, even if empty.\n\n"
+        "### OUTPUT FORMAT:\n"
+        "Respond with ONLY a valid, raw JSON object. Do not wrap it in ```json markdown fences.\n"
         "Example output:\n"
         "{\n"
         '  "91234": "Java, Spring Boot, MySQL",\n'
-        '  "95678": "Python, Django, PostgreSQL"\n'
-        "}\n"
-        "Do not include any introductory/concluding text, markdown blocks, or formatting besides raw JSON.\n\n"
+        '  "95678": "Python, Django, PostgreSQL",\n'
+        '  "99999": ""\n'
+        "}\n\n"
+        "### INPUT DATA:\n"
         f"{jobs_text}"
     )
     
@@ -115,10 +119,11 @@ def tag_data(db_url: str):
                 source_id, description = row
                 source_id_str = str(source_id)
                 
-                tech_stack = batch_results.get(source_id_str, "")
-                if tech_stack:
-                    batch_updates.append((tech_stack, source_id))
-                    print(f"[Batch {batch_idx}] Analyzed Job {source_id_str}: {tech_stack}")
+                tech_stack = batch_results.get(source_id_str, None)
+                if tech_stack is not None:
+                    db_value = "N/A" if tech_stack.strip() == "" else tech_stack
+                    batch_updates.append((db_value, source_id))
+                    print(f"[Batch {batch_idx}] Analyzed Job {source_id_str}: {db_value}")
                 else:
                     print(f"[Error] Job {source_id_str} not found in batch results or failed.")
             update_jobs_batch(conn, batch_updates)
