@@ -27,7 +27,6 @@ def find_skill_gaps(input_file_path: str, db_url: str) -> SkillGapResult:
     try:
         resume_text = resume_path.read_text(encoding="utf-8")
         resume_skills = get_resume_skills(DEFAULT_MODEL, resume_text)
-        print("resume_skills = ", resume_skills)
         conn = sqlite3.connect(str(db_path))
         try:
             db_skills = get_db_skills(conn)
@@ -91,7 +90,7 @@ def get_db_skills(conn) -> set[str]:
             skills = []
             for part in tech_stack_str.split(","):
                 part = part.strip().lower()
-                if not part:
+                if not part or part == "n/a":
                     continue
                 if part in ("ci/cd", "a/b testing"):
                     skills.append(part)
