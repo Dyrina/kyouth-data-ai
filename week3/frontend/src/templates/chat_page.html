@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Resume Chat</title>
+  
+  <!-- Bootstrap 5 CSS for premium UI styling and grid systems -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- PDF.js library used for client-side PDF text extraction -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script>
+    // Point PDF.js worker to a public CDN for processing
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  </script>
+
+  <style>
+    /* Styling adjustments extending the Bootstrap layout */
+    body {
+      background-color: #f8fafc;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Fixed-height container matching page viewports */
+    .app-viewport {
+      height: 90vh;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    /* Scrollable chat log viewport */
+    .chat-history {
+      flex: 1;
+      overflow-y: auto;
+      background-color: #f8fafc;
+    }
+
+    /* Custom scrollbar configurations */
+    .chat-history::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-history::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    /* Custom Chat bubble modifications */
+    .message {
+      max-width: 75%;
+      padding: 12px 16px;
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+
+    .message.user {
+      border-bottom-right-radius: 2px !important;
+      background-color: #4f46e5 !important;
+      color: white !important;
+    }
+
+    .message.bot {
+      border-bottom-left-radius: 2px !important;
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border: 1px solid #e2e8f0;
+    }
+
+    /* Attachment labels inside chat messages */
+    .attachment-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      margin-top: 8px;
+    }
+
+    .message.user .attachment-badge {
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+    }
+
+    .message.bot .attachment-badge {
+      background: rgba(0, 0, 0, 0.05);
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  
+  <div class="container-fluid app-viewport p-0">
+    <div class="row g-4 h-100 justify-content-center align-items-stretch">
+      
+      <!-- Documentation Sidebar Panel (visible on desktop) -->
+      <div class="col-md-4 col-lg-3 d-none d-md-flex flex-column">
+        <div class="card h-100 border border-slate-200 shadow-sm p-4 overflow-auto bg-white rounded-3">
+          <h2 class="h5 border-bottom pb-2 mb-3 text-dark fw-bold">Documentation</h2>
+          <p class="text-secondary small">Welcome to the <strong>AI Resume Assistant</strong>. Use this tool to extract skills from resumes and ask targeted questions.</p>
+          
+          <h3 class="h6 text-primary fw-bold mt-2 text-uppercase small" style="letter-spacing: 0.05em;">Instructions</h3>
+          <ul class="text-secondary small ps-3 mb-4">
+            <li class="mb-2"><strong>Upload PDF:</strong> Click 📎 to select a PDF resume. It is converted to text client-side.</li>
+            <li class="mb-2"><strong>Chat:</strong> Type a message and hit Enter or Send.</li>
+            <li class="mb-2"><strong>Reset:</strong> Clear PDF context using "Remove".</li>
+          </ul>
+          
+          <h3 class="h6 text-primary fw-bold text-uppercase small" style="letter-spacing: 0.05em;">Architecture</h3>
+          <p class="text-secondary small mb-0">The app uses <code>pdf.js</code> for browser-side PDF text extraction and sends structured JSON payloads to the configured backend API.</p>
+        </div>
+      </div>
+
+      <!-- Main Chat Workspace Card -->
+      <div class="col-12 col-md-8 col-lg-7 d-flex flex-column h-100">
+        <div class="card h-100 border border-slate-200 shadow-sm d-flex flex-column overflow-hidden bg-white rounded-3">
+          
+          <!-- Header -->
+          <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+            <h1 class="h5 mb-0 fw-semibold text-dark">AI Resume Assistant</h1>
+            <span class="badge bg-light text-secondary border px-3 py-2" id="status">Ready</span>
+          </div>
+
+          <!-- Chat History -->
+          <div class="card-body chat-history p-4 d-flex flex-column gap-3" id="chat-history">
+            <div class="d-flex justify-content-start">
+              <div class="message bot rounded shadow-sm">
+                Hello! I am your AI Resume Helper. Feel free to ask questions or upload a PDF resume to analyze.
+              </div>
+            </div>
+          </div>
+
+          <!-- Input Area -->
+          <div class="card-footer bg-white border-top p-4">
+            <!-- PDF Attachment Preview -->
+            <div class="alert alert-primary d-flex justify-content-between align-items-center mb-3 py-2 px-3" id="preview-bar" style="display: none !important;">
+              <div class="d-flex align-items-center">
+                <span class="me-2">📎</span>
+                <span id="filename" class="small fw-medium">resume.pdf</span>
+              </div>
+              <button type="button" class="btn-close" style="position: static; padding: 0.5rem;" id="btn-remove-file" aria-label="Close"></button>
+            </div>
+
+            <!-- Input Controls -->
+            <div class="d-flex gap-2">
+              <!-- Hidden file input used to trigger attachment select dialog -->
+              <input type="file" id="file-input" accept=".pdf" style="display: none;">
+              
+              <button class="btn btn-outline-secondary" id="btn-attach" title="Attach PDF Resume">📎</button>
+              <input type="text" class="form-control py-2" id="text-input" placeholder="Ask a question..." autocomplete="off">
+              <button class="btn btn-primary px-4" id="btn-send">Send</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <script>
+    // Dynamic backend URL loaded via environment variable injection
+    const BACKEND_URL = "{{ backend_url }}";
+
+    // DOM Element References
+    const chatHistory = document.getElementById('chat-history');
+    const textInput = document.getElementById('text-input');
+    const btnSend = document.getElementById('btn-send');
+    const btnAttach = document.getElementById('btn-attach');
+    const fileInput = document.getElementById('file-input');
+    const previewBar = document.getElementById('preview-bar');
+    const filenameSpan = document.getElementById('filename');
+    const btnRemoveFile = document.getElementById('btn-remove-file');
+    const statusDiv = document.getElementById('status');
+
+    // Chat Attachment states
+    let attachedFile = null;
+    let extractedText = "";
+
+    // Trigger file selection dialog on button click
+    btnAttach.addEventListener('click', () => fileInput.click());
+
+    // File change handler to validate and read PDFs
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Restrict file uploads to PDF type only
+      if (file.type !== 'application/pdf') {
+        alert('Only PDF files are supported.');
+        fileInput.value = '';
+        return;
+      }
+
+      attachedFile = file;
+      filenameSpan.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      previewBar.style.setProperty('display', 'flex', 'important');
+      statusDiv.textContent = 'Parsing PDF...';
+
+      try {
+        // Parse PDF content client-side
+        extractedText = await parsePdf(file);
+        statusDiv.textContent = 'PDF Loaded';
+      } catch (err) {
+        console.error(err);
+        alert('Failed to parse PDF.');
+        clearAttachment();
+      }
+    });
+
+    // Reset attached file configurations
+    btnRemoveFile.addEventListener('click', clearAttachment);
+
+    function clearAttachment() {
+      attachedFile = null;
+      extractedText = "";
+      fileInput.value = '';
+      previewBar.style.setProperty('display', 'none', 'important');
+      statusDiv.textContent = 'Ready';
+    }
+
+    // Client-side PDF parser function leveraging the PDF.js library API
+    async function parsePdf(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let text = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(item => item.str).join(' ') + '\n';
+      }
+      return text.trim();
+    }
+
+    // Process user input and send payload to LLM backend API
+    async function sendMessage() {
+      const message = textInput.value.trim();
+      if (!message && !extractedText) return;
+
+      // Append user bubble to chat area
+      appendMessage(message, 'user', attachedFile ? attachedFile.name : null);
+
+      const sentMessage = message;
+      const sentText = extractedText;
+      
+      // Clear inputs right after click
+      textInput.value = '';
+      clearAttachment();
+
+      // Display a typing message placeholder
+      const typingId = appendTyping();
+
+      try {
+        statusDiv.textContent = 'Sending...';
+        // Post payload containing query messages and parsed resume text
+        const response = await fetch(BACKEND_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: sentMessage, pdf_text: sentText || null })
+        });
+        
+        // Remove typing indicator placeholder
+        document.getElementById(typingId).remove();
+
+        if (!response.ok) throw new Error(`Status ${response.status}`);
+        const data = await response.json();
+        statusDiv.textContent = 'Ready';
+        
+        // Append bot reply to chat area
+        appendMessage(data.response || JSON.stringify(data), 'bot');
+      } catch (err) {
+        console.error(err);
+        document.getElementById(typingId).remove();
+        statusDiv.textContent = 'Error';
+        appendMessage(`Error: ${err.message}`, 'bot');
+      }
+    }
+
+    // Bind event handlers for sending actions
+    btnSend.addEventListener('click', sendMessage);
+    textInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    // Helper to dynamically build and insert chat messages
+    function appendMessage(text, sender, filename = null) {
+      const outerDiv = document.createElement('div');
+      outerDiv.className = `d-flex ${sender === 'user' ? 'justify-content-end' : 'justify-content-start'}`;
+
+      const div = document.createElement('div');
+      div.className = `message ${sender} rounded shadow-sm`;
+      div.textContent = text;
+      
+      if (filename) {
+        const badge = document.createElement('div');
+        badge.classList.add('attachment-badge');
+        badge.textContent = `📎 ${filename}`;
+        div.appendChild(badge);
+      }
+      
+      outerDiv.appendChild(div);
+      chatHistory.appendChild(outerDiv);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    // Helper to append a dynamic typing message bubble
+    function appendTyping() {
+      const id = 'typing-' + Date.now();
+      const outerDiv = document.createElement('div');
+      outerDiv.className = 'd-flex justify-content-start';
+      outerDiv.id = id;
+
+      const div = document.createElement('div');
+      div.className = 'message bot rounded shadow-sm';
+      div.textContent = 'Thinking...';
+      
+      outerDiv.appendChild(div);
+      chatHistory.appendChild(outerDiv);
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+      return id;
+    }
+  </script>
+</body>
+</html>
