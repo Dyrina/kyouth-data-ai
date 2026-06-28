@@ -36,6 +36,12 @@ Users can upload a PDF resume, have it parsed client-side, and ask the AI to ana
 
    # Available Ollama models (requires Ollama running on the host)
    OLLAMA_MODELS=phi3,llama3.1,deepseek-r1:1.5b
+
+   # Default Model
+   DEFAULT_MODEL=gemini-3.1-flash-lite
+
+   # Database Path (in terms of backend's /src directory)
+   DATABASE_PATH=week2/data/your_database.db
    ```
 
 ### Manual Setup (without Docker)
