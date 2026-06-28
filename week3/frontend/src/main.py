@@ -1,4 +1,5 @@
 import os
+import httpx
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -6,7 +7,6 @@ from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional
-import httpx
 
 # Load env variables from .env if present
 load_dotenv()
@@ -21,10 +21,12 @@ templates = Jinja2Templates(directory=str(templates_dir))
 backend_service_url = os.environ.get("BACKEND_URL", "http://localhost:8000/chat")
 backend_base_url = backend_service_url.replace("/chat", "")
 
+
 class ChatRequest(BaseModel):
     message: str
     pdf_text: Optional[str] = None
     model: Optional[str] = None
+
 
 @app.get("/", response_class=HTMLResponse)
 def get_chat_page(request: Request):
@@ -35,7 +37,7 @@ def get_chat_page(request: Request):
     gemini_models = []
     ollama_models = []
     default_model = ""
-    
+
     try:
         with httpx.Client() as client:
             resp = client.get(f"{backend_base_url}/api/available-models", timeout=5.0)
@@ -55,8 +57,9 @@ def get_chat_page(request: Request):
             "gemini_models": gemini_models,
             "ollama_models": ollama_models,
             "default_model": default_model,
-        }
+        },
     )
+
 
 @app.post("/chat")
 def chat_endpoint(payload: ChatRequest):
@@ -66,10 +69,12 @@ def chat_endpoint(payload: ChatRequest):
     with httpx.Client() as client:
         try:
             response = client.post(
-                backend_service_url,
-                json=payload.model_dump(),
-                timeout=120.0
+                backend_service_url, json=payload.model_dump(), timeout=120.0
             )
             return JSONResponse(content=response.json())
         except Exception as e:
-            return JSONResponse(content={"response": f"Error communicating with backend service: {str(e)}"})
+            return JSONResponse(
+                content={
+                    "response": f"Error communicating with backend service: {str(e)}"
+                }
+            )
