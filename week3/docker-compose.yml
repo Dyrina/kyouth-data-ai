@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - BACKEND_URL=http://backend:8000/chat
+      - BACKEND_URL=http://backend:8000
     networks:
       - chat_network
     depends_on:
