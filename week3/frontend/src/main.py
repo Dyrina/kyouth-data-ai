@@ -19,6 +19,7 @@ BACKEND_CHAT_URL = f"{BACKEND_BASE_URL}/chat"
 
 http_client = httpx.Client(timeout=120.0)
 
+
 class ChatRequest(BaseModel):
     message: str
     pdf_text: str | None = None
@@ -54,18 +55,14 @@ def get_chat_page(request: Request):
 @app.post("/chat")
 def chat_endpoint(payload: ChatRequest):
     try:
-        response = http_client.post(
-            BACKEND_CHAT_URL, 
-            json=payload.model_dump()
-        )
+        response = http_client.post(BACKEND_CHAT_URL, json=payload.model_dump())
         return JSONResponse(content=response.json(), status_code=response.status_code)
     except httpx.RequestError as e:
         return JSONResponse(
-            status_code=503, 
-            content={"error": f"AI Backend Service Unavailable: {str(e)}"}
+            status_code=503,
+            content={"error": f"AI Backend Service Unavailable: {str(e)}"},
         )
     except Exception as e:
         return JSONResponse(
-            status_code=500, 
-            content={"error": f"Frontend Proxy Error: {str(e)}"}
+            status_code=500, content={"error": f"Frontend Proxy Error: {str(e)}"}
         )
