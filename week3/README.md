@@ -44,6 +44,8 @@ Users can upload a PDF resume, have it parsed client-side, and ask the AI to ana
    DATABASE_PATH=week2/data/your_database.db
    ```
 
+3. Create a `/data` directory in `/backend/src/week2` directory to add your SQLite database.
+
 ### Manual Setup (without Docker)
 
 If you prefer to run the services locally without Docker:
