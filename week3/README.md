@@ -60,10 +60,29 @@ uv sync
 uv run uvicorn --app-dir src --host 0.0.0.0 --port 8000 app:app
 ```
 
-When running locally, set the `BACKEND_URL` environment variable for the frontend:
+When running locally, set the `BACKEND_URL` environment variable for the frontend (the proxy will automatically append `/chat`):
 
 ```bash
-export BACKEND_URL=http://localhost:8000/chat
+export BACKEND_URL=http://localhost:8000
+```
+
+### Manual Setup (Individual Docker Containers)
+
+If you want to build and run the Docker containers individually without `docker compose`:
+
+```bash
+# 1. Create a shared network for the containers to communicate
+docker network create chat_network
+
+# 2. Build and run the Backend
+cd backend
+docker build -t week3-backend:1.0 .
+docker run --name my-backend --network chat_network -p 8001:8000 --env-file ../.env week3-backend:1.0
+
+# 3. Build and run the Frontend (in a separate terminal)
+cd ../frontend
+docker build -t week3-frontend:1.0 .
+docker run --name my-frontend --network chat_network -p 8000:8000 --env-file ../.env -e BACKEND_URL=http://my-backend:8000 week3-frontend:1.0
 ```
 
 ## Usage
@@ -242,6 +261,40 @@ curl -X POST http://localhost:8001/chat \
 
 # Get available models
 curl http://localhost:8001/api/available-models
+```
+
+#### Validation & Error Handling Tests
+
+```bash
+# 1. Malformed JSON Payload (Syntax Error)
+curl -i -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "hello", "model": '
+# Expected: HTTP 400 Bad Request or HTTP 422 Unprocessable Content (FastAPI rejects invalid JSON).
+
+# 2. Type Mismatch (Dictionary instead of String)
+curl -i -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"hacker_payload": true}}'
+# Expected: HTTP 422 Unprocessable Content - "Input should be a valid string"
+
+# 3. Missing Required Field ('message' is missing)
+curl -i -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{}'
+# Expected: HTTP 422 Unprocessable Content - "Field required"
+
+# 4. Incorrect Content-Type Header
+curl -i -X POST http://localhost:8000/chat \
+  -H "Content-Type: text/plain" \
+  -d '{"message": "hello"}'
+# Expected: HTTP 422 Unprocessable Content - "Input should be a valid dictionary or object to extract fields from"
+
+# 5. Empty or Whitespace-only Message (Business Logic Validation)
+curl -i -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "   \t   \n   "}'
+# Expected: HTTP 400 Bad Request - {"response":"Please provide a prompt or a PDF."}
 ```
 
 ## Limitations
