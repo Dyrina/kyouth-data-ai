@@ -185,14 +185,12 @@
 					<!-- Input Area -->
 					<div class="card-footer bg-white border-top p-4">
 						<!-- PDF Attachment Preview -->
-						<div class="alert alert-primary d-flex justify-content-between align-items-center mb-3 py-2 px-3"
-							id="preview-bar" style="display: none !important;">
+						<div class="alert alert-primary justify-content-between align-items-center mb-3 py-2 px-3 d-none" id="preview-bar">
 							<div class="d-flex align-items-center">
 								<span class="me-2">📎</span>
 								<span id="filename" class="small fw-medium">resume.pdf</span>
 							</div>
-							<button type="button" class="btn-close" style="position: static; padding: 0.5rem;"
-								id="btn-remove-file" aria-label="Close"></button>
+							<button type="button" class="btn-close" style="position: static; padding: 0.5rem;" id="btn-remove-file" aria-label="Close"></button>
 						</div>
 
 						<!-- Input Controls -->
@@ -215,238 +213,147 @@
 	</div>
 
 	<script>
-		// Dynamic backend URL loaded via environment variable injection
 		const BACKEND_URL = "{{ backend_url }}";
 
-		// DOM Element References
 		const chatHistory = document.getElementById('chat-history');
-		const textInput = document.getElementById('text-input');
-		const btnSend = document.getElementById('btn-send');
-		const btnAttach = document.getElementById('btn-attach');
-		const fileInput = document.getElementById('file-input');
-		const previewBar = document.getElementById('preview-bar');
-		const filenameSpan = document.getElementById('filename');
-		const btnRemoveFile = document.getElementById('btn-remove-file');
-		const statusDiv = document.getElementById('status');
+		const textInput   = document.getElementById('text-input');
+		const fileInput   = document.getElementById('file-input');
+		const previewBar  = document.getElementById('preview-bar');
+		const statusDiv   = document.getElementById('status');
 		const modelSelect = document.getElementById('model-select');
 
-		// Chat Attachment and UI states
-		let attachedFile = null;
-		let extractedText = "";
-		let isSending = false;
+		let attachedFile = null, extractedText = "", isSending = false;
 
-		// Trigger file selection dialog on button click
-		btnAttach.addEventListener('click', () => fileInput.click());
+		// --- UI LOCKER HELPER ---
+		const setBusy = (busy, statusText = "Ready") => {
+			isSending = busy;
+			statusDiv.textContent = statusText;
+			document.querySelectorAll('#btn-send, #text-input, #btn-attach, #model-select')
+					.forEach(el => el.disabled = busy);
+			if (!busy) textInput.focus();
+		};
 
-		// File change handler to validate and read PDFs
-		fileInput.addEventListener('change', async (e) => {
-			const file = e.target.files[0];
-			if (!file) return;
-
-			// Restrict file uploads to PDF type only
-			if (file.type !== 'application/pdf') {
-				alert('Only PDF files are supported.');
-				fileInput.value = '';
-				return;
-			}
-
-			attachedFile = file;
-			filenameSpan.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-			previewBar.style.setProperty('display', 'flex', 'important');
-			statusDiv.textContent = 'Parsing PDF...';
-
-			try {
-				// Parse PDF content client-side
-				extractedText = await parsePdf(file);
-				statusDiv.textContent = 'PDF Loaded';
-			} catch (err) {
-				console.error(err);
-				alert('Failed to parse PDF.');
-				clearAttachment();
-			}
-		});
-
-		// Reset attached file configurations
-		btnRemoveFile.addEventListener('click', clearAttachment);
+		// --- FILE ATTACHMENT ---
+		const togglePreview = (show) => {
+			previewBar.classList.toggle('d-flex', show);
+			previewBar.classList.toggle('d-none', !show);
+		};
 
 		function clearAttachment() {
-			attachedFile = null;
-			extractedText = "";
+			attachedFile = null; 
+			extractedText = ""; 
 			fileInput.value = '';
-			previewBar.style.setProperty('display', 'none', 'important');
+			togglePreview(false); // Slams the banner shut
 			statusDiv.textContent = 'Ready';
 		}
 
-		// Client-side PDF parser function leveraging the PDF.js library API
-		async function parsePdf(file) {
-			const arrayBuffer = await file.arrayBuffer();
-			const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-			let text = '';
-			for (let i = 1; i <= pdf.numPages; i++) {
-				const page = await pdf.getPage(i);
-				const content = await page.getTextContent();
-				text += content.items.map(item => item.str).join(' ') + '\n';
-			}
-			return text.trim();
-		}
+		// Bind buttons to attachment actions
+		document.getElementById('btn-attach').onclick = () => fileInput.click();
+		document.getElementById('btn-remove-file').onclick = clearAttachment;
 
-		// Process user input and send payload to LLM backend API
-		async function sendMessage() {
+		fileInput.onchange = async (e) => {
+			const file = e.target.files[0];
+			if (!file || file.type !== 'application/pdf') return alert('PDFs only.');
+
+			attachedFile = file;
+			document.getElementById('filename').textContent = `${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+			
+			togglePreview(true); // Pops the blue banner open above the textbox!
+			
+			setBusy(true, "Parsing PDF...");
+			try {
+				const buffer = await file.arrayBuffer();
+				const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+				let text = '';
+				for (let i = 1; i <= pdf.numPages; i++) {
+					const page = await pdf.getPage(i);
+					text += (await page.getTextContent()).items.map(s => s.str).join(' ') + '\n';
+				}
+				extractedText = text.trim();
+				setBusy(false, "PDF Loaded");
+			} catch { 
+				alert('PDF parse error.'); 
+				clearAttachment(); 
+				setBusy(false); 
+			}
+		};
+
+		// --- UNIVERSAL MESSAGE DISPATCHER ---
+		async function askAI(customText = null, isSilentGreeting = false) {
 			if (isSending) return;
-			const message = textInput.value.trim();
+			const message = customText || textInput.value.trim();
 			if (!message && !extractedText) return;
 
-			isSending = true;
-			btnSend.disabled = true;
-			textInput.disabled = true;
-			btnAttach.disabled = true;
-			modelSelect.disabled = true;
+			setBusy(true, isSilentGreeting ? "Connecting..." : "Sending...");
 
-			// Append user bubble to chat area
-			appendMessage(message, 'user', attachedFile ? attachedFile.name : null);
+			// Capture payload before clearing attachment
+			const payload = {
+				message: message,
+				pdf_text: extractedText || null,
+				model: modelSelect.value
+			};
 
-			const sentMessage = message;
-			const sentText = extractedText;
+			if (!isSilentGreeting) {
+				appendBubble(message, 'user', attachedFile?.name);
+				textInput.value = '';
+				clearAttachment();
+			}
 
-			// Clear inputs right after click
-			textInput.value = '';
-			clearAttachment();
-
-			// Display a typing message placeholder
-			const typingId = appendTyping();
+			const typeId = appendBubble("Thinking...", 'bot', null, true);
 
 			try {
-				statusDiv.textContent = 'Sending...';
-				// Post payload containing query messages and parsed resume text
-				const response = await fetch(BACKEND_URL, {
+				const res = await fetch(BACKEND_URL, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ message: sentMessage, pdf_text: sentText || null, model: modelSelect.value })
+					body: JSON.stringify(payload)
 				});
+				
+				document.getElementById(typeId).remove();
+				const data = await res.json();
+				appendBubble(data.response || data.error || JSON.stringify(data), 'bot');
 
-				// Remove typing indicator placeholder
-				document.getElementById(typingId).remove();
-
-				if (!response.ok) throw new Error(`Status ${response.status}`);
-				const data = await response.json();
-				statusDiv.textContent = 'Ready';
-
-				// Append bot reply to chat area
-				appendMessage(data.response || JSON.stringify(data), 'bot');
 			} catch (err) {
-				console.error(err);
-				document.getElementById(typingId).remove();
-				statusDiv.textContent = 'Error';
-				appendMessage(`Error: ${err.message}`, 'bot');
-			} finally {
-				isSending = false;
-				btnSend.disabled = false;
-				textInput.disabled = false;
-				btnAttach.disabled = false;
-				modelSelect.disabled = false;
-				textInput.focus();
-			}
+				document.getElementById(typeId)?.remove();
+				appendBubble(`Network Error: Backend unreachable.`, 'bot');
+			} finally { setBusy(false); }
 		}
 
-		// Bind event handlers for sending actions
-		btnSend.addEventListener('click', sendMessage);
-		textInput.addEventListener('keydown', (e) => {
-			if (e.key === 'Enter') sendMessage();
-		});
+		// --- DOM DRAWER ---
+		function appendBubble(text, sender, fname = null, isTemp = false) {
+			const wrap = document.createElement('div');
+			wrap.className = `d-flex ${sender === 'user' ? 'justify-content-end' : 'justify-content-start'}`;
+			if (isTemp) wrap.id = 'type-' + Date.now();
 
-		// Helper to dynamically build and insert chat messages
-		// Bot messages are rendered as markdown via marked.js; user messages stay as plain text
-		function appendMessage(text, sender, filename = null) {
-			const outerDiv = document.createElement('div');
-			outerDiv.className = `d-flex ${sender === 'user' ? 'justify-content-end' : 'justify-content-start'}`;
+			const bubble = document.createElement('div');
+			bubble.className = `message ${sender} shadow-sm`; // '.rounded' removed to stop Bootstrap fighting custom CSS
+			
+			// Format arrays as markdown lists, otherwise cast to string
+			const content = Array.isArray(text) ? text.map(item => `- ${item}`).join('\n') : String(text);
+			bubble.innerHTML = sender === 'bot' ? marked.parse(content) : text;
 
-			const div = document.createElement('div');
-			div.className = `message ${sender} rounded shadow-sm`;
-
-			if (sender === 'bot') {
-				// If the response is an array (e.g. skill gaps list), format it as a markdown list
-				const content = Array.isArray(text)
-					? text.map(item => `- ${item}`).join('\n')
-					: String(text);
-				div.innerHTML = marked.parse(content);
-			} else {
-				div.textContent = text;
-			}
-
-			if (filename) {
+			if (fname) {
 				const badge = document.createElement('div');
-				badge.classList.add('attachment-badge');
-				badge.textContent = `📎 ${filename}`;
-				div.appendChild(badge);
+				badge.className = 'attachment-badge';
+				badge.textContent = `📎 ${fname}`;
+				bubble.appendChild(badge);
 			}
 
-			outerDiv.appendChild(div);
-			chatHistory.appendChild(outerDiv);
+			wrap.appendChild(bubble);
+			chatHistory.appendChild(wrap);
 			chatHistory.scrollTop = chatHistory.scrollHeight;
+			return wrap.id;
 		}
 
-		// Helper to append a dynamic typing message bubble
-		function appendTyping() {
-			const id = 'typing-' + Date.now();
-			const outerDiv = document.createElement('div');
-			outerDiv.className = 'd-flex justify-content-start';
-			outerDiv.id = id;
+		// Listeners
+		document.getElementById('btn-send').onclick = () => askAI();
+		textInput.onkeydown = (e) => {
+			if (e.key === 'Enter') askAI();
+		};
 
-			const div = document.createElement('div');
-			div.className = 'message bot rounded shadow-sm';
-			div.textContent = 'Thinking...';
-
-			outerDiv.appendChild(div);
-			chatHistory.appendChild(outerDiv);
-			chatHistory.scrollTop = chatHistory.scrollHeight;
-			return id;
-		}
-
-		// Automatically send a hidden prompt to the backend on load to generate the greeting
-		async function sendInitialPrompt() {
-			isSending = true;
-			btnSend.disabled = true;
-			textInput.disabled = true;
-			btnAttach.disabled = true;
-			modelSelect.disabled = true;
-
-			const typingId = appendTyping();
-			statusDiv.textContent = 'Connecting...';
-
-			try {
-				const response = await fetch(BACKEND_URL, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ 
-						message: "Introduce yourself as the AI Resume Helper in 1 short sentences. Be welcoming.", 
-						pdf_text: null, 
-						model: modelSelect.value 
-					})
-				});
-
-				document.getElementById(typingId).remove();
-				if (!response.ok) throw new Error(`Status ${response.status}`);
-				const data = await response.json();
-				statusDiv.textContent = 'Ready';
-				appendMessage(data.response || JSON.stringify(data), 'bot');
-			} catch (err) {
-				console.error(err);
-				const el = document.getElementById(typingId);
-				if (el) el.remove();
-				statusDiv.textContent = 'Error';
-				appendMessage(`Error: Could not connect to the backend. Is the model running?`, 'bot');
-			} finally {
-				isSending = false;
-				btnSend.disabled = false;
-				textInput.disabled = false;
-				btnAttach.disabled = false;
-				modelSelect.disabled = false;
-				textInput.focus();
-			}
-		}
-
-		// Trigger initial prompt when DOM is loaded
-		window.addEventListener('DOMContentLoaded', sendInitialPrompt);
+		// Auto-boot greeting
+		document.addEventListener('DOMContentLoaded', () => {
+			askAI("Introduce yourself as the AI Resume Helper in 1 short sentence. Be welcoming.", true);
+		});
 	</script>
 </body>
 </html>
