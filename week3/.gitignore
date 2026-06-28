@@ -1,0 +1,8 @@
+# week1
+data/
+__pycache__/
+.ruff_cache/
+.venv/
+
+# week2
+.env
