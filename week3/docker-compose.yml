@@ -4,7 +4,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "8080:8000"
+      - "8000:8000"
     environment:
       - BACKEND_URL=http://backend:8000/chat
     networks:
@@ -16,6 +16,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
     env_file: .env
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
